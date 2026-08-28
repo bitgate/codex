@@ -1141,6 +1141,14 @@ impl ThreadRequestProcessor {
             project_id,
             environments,
         } = params;
+        // A picker selection naming a config-defined profile arrives as
+        // `model`; expand it into the profile's real model/provider/effort.
+        let (model, model_provider, config) = crate::profiles::expand_profile_for_new_thread(
+            &self.config,
+            model,
+            model_provider,
+            config,
+        );
         if matches!(
             history_mode,
             Some(codex_app_server_protocol::ThreadHistoryMode::Paginated)

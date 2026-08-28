@@ -209,6 +209,16 @@ impl TurnRequestProcessor {
         let (_, thread) = self.load_thread(&params.thread_id).await?;
         self.ensure_direct_input_allowed(request_id, thread.as_ref())
             .await?;
+        // Expand a profile selection into its real model; providers are fixed
+        // per thread, so a cross-provider profile is rejected with guidance.
+        let active_provider = thread.config().await.model_provider_id.clone();
+        let (model, effort) = crate::profiles::expand_profile_for_active_thread(
+            &self.config,
+            &active_provider,
+            params.model,
+            params.effort,
+        )
+        .map_err(invalid_request)?;
         let (reply, outcome) = oneshot::channel();
         self.submit_core_op(
             request_id,
@@ -216,9 +226,9 @@ impl TurnRequestProcessor {
             Op::TurnSettings {
                 turn_id: params.turn_id,
                 update: TurnSettingsUpdate {
-                    model: params.model,
+                    model,
                     // Match thread/settings/update: public null does not clear effort.
-                    effort: params.effort.map(Some),
+                    effort: effort.map(Some),
                     summary: params.summary,
                     service_tier: params.service_tier,
                 },
@@ -909,6 +919,16 @@ impl TurnRequestProcessor {
                 /*environment_selections*/ None,
             )
             .await;
+        // Expand a profile selection into its real model; providers are fixed
+        // per thread, so a cross-provider profile is rejected with guidance.
+        let active_provider = thread.config().await.model_provider_id.clone();
+        let (model, effort) = crate::profiles::expand_profile_for_active_thread(
+            &self.config,
+            &active_provider,
+            params.model,
+            params.effort,
+        )
+        .map_err(invalid_request)?;
         let thread_settings = self
             .build_thread_settings_overrides(
                 thread.as_ref(),
@@ -919,9 +939,9 @@ impl TurnRequestProcessor {
                     approvals_reviewer: params.approvals_reviewer,
                     sandbox_policy: params.sandbox_policy,
                     permissions: params.permissions,
-                    model: params.model,
+                    model,
                     service_tier: params.service_tier,
-                    effort: params.effort,
+                    effort,
                     summary: params.summary,
                     collaboration_mode: params.collaboration_mode,
                     personality: params.personality,
