@@ -120,6 +120,7 @@ mod models;
 mod models_refresh_worker;
 mod otel_reloader;
 mod outgoing_message;
+mod profiles;
 mod realtime_event_handling;
 mod realtime_history;
 mod request_processors;

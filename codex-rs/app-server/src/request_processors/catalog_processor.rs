@@ -172,6 +172,7 @@ impl CatalogRequestProcessor {
         Self::list_models(
             self.thread_manager.clone(),
             self.config.http_client_factory(),
+            &self.config,
             params,
         )
         .await
@@ -242,6 +243,7 @@ impl CatalogRequestProcessor {
     async fn list_models(
         thread_manager: Arc<ThreadManager>,
         http_client_factory: codex_http_client::HttpClientFactory,
+        config: &Config,
         params: ModelListParams,
     ) -> Result<ModelListResponse, JSONRPCErrorError> {
         let ModelListParams {
@@ -253,6 +255,7 @@ impl CatalogRequestProcessor {
             thread_manager,
             include_hidden.unwrap_or(false),
             http_client_factory,
+            config,
         )
         .await;
         let total = models.len();

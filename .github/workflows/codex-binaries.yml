@@ -1,0 +1,69 @@
+name: codex-binaries
+
+# Builds the codex CLI (incl. app-server) from this fork and attaches the
+# binaries to a GitHub release. CodexDesktop-Rebuild bundles these via
+# CODEX_VENDOR_BIN / vendor/codex/<triple>/ so the desktop app ships our
+# profile-based model selector.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "codex-rs/**"
+      - ".github/workflows/codex-binaries.yml"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-14, triple: aarch64-apple-darwin }
+          - { os: macos-13, triple: x86_64-apple-darwin }
+          - { os: windows-latest, triple: x86_64-pc-windows-msvc }
+          - { os: ubuntu-latest, triple: x86_64-unknown-linux-gnu }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: codex-rs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.95.0"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: codex-rs
+      - name: Build codex
+        run: cargo build --release -p codex-cli
+      - name: Stage artifact (unix)
+        if: runner.os != 'Windows'
+        run: cp target/release/codex codex-${{ matrix.triple }}
+      - name: Stage artifact (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Copy-Item target/release/codex.exe codex-${{ matrix.triple }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-${{ matrix.triple }}
+          path: codex-rs/codex-${{ matrix.triple }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: codex-*
+          merge-multiple: true
+      - name: Upload to rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: fork-binaries
+          name: fork binaries (rolling)
+          files: codex-*
